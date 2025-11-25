@@ -1,179 +1,212 @@
-// app.js
+// app.js - v4.0 Ultimate
 
-let appData = {
-    entries: [],
-    nodes: []
+let appData = { 
+    entries: {} // Estructura nueva: { "2025-11-25": { text: "...", tasks: [] } }
 };
-
-const DB_FILE_NAME = 'neurodiary_db.json';
+const DB_FILE_NAME = 'neurodiary_v4.json'; // Cambiamos nombre para no mezclar con la version vieja
 let fileId = null; 
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+let selectedDateStr = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
 
-// --- NAVEGACIÓN ---
-function showSection(id) {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden-section'));
-    document.getElementById(id).classList.remove('hidden-section');
-    
-    // Resetear clases active
-    document.querySelectorAll('.sidebar button').forEach(b => b.classList.remove('active'));
+// --- Navegación ---
+function showCalendarView() {
+    document.getElementById('main-view').classList.remove('hidden');
+    document.getElementById('chat-view').classList.add('hidden');
+    document.querySelectorAll('.nav-btn')[0].classList.add('active');
+    document.querySelectorAll('.nav-btn')[1].classList.remove('active');
+}
+function showChatView() {
+    document.getElementById('main-view').classList.add('hidden');
+    document.getElementById('chat-view').classList.remove('hidden');
+    document.querySelectorAll('.nav-btn')[0].classList.remove('active');
+    document.querySelectorAll('.nav-btn')[1].classList.add('active');
 }
 
-// --- GOOGLE DRIVE (Persistencia) ---
-
+// --- Google Drive ---
 async function loadDataFromDrive() {
-    console.log("Sincronizando con Drive...");
     try {
         const q = `name = '${DB_FILE_NAME}' and trashed = false`;
-        const response = await gapi.client.drive.files.list({
-            'q': q,
-            'fields': 'files(id, name)',
-            'spaces': 'drive'
-        });
-
-        const files = response.result.files;
-
-        if (files && files.length > 0) {
-            fileId = files[0].id;
-            const fileContent = await gapi.client.drive.files.get({
-                fileId: fileId,
-                alt: 'media'
-            });
-            appData = fileContent.result;
-            console.log("Datos descargados correctamente.");
-        } else {
-            console.log("Usuario nuevo, se creará el archivo al guardar.");
+        if (!gapi.client.drive) return;
+        const response = await gapi.client.drive.files.list({ 'q': q, 'fields': 'files(id, name)', 'spaces': 'drive' });
+        
+        if (response.result.files.length > 0) {
+            fileId = response.result.files[0].id;
+            const fileContent = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+            appData = fileContent.result || { entries: {} };
         }
-        renderEntries();
+        renderCalendar();
+        loadDayContent(selectedDateStr);
     } catch (err) {
-        console.error("Error Drive:", err);
-        const local = localStorage.getItem('neurodiary_backup');
-        if(local) {
-            appData = JSON.parse(local);
-            renderEntries();
-            alert("Sin conexión: Mostrando datos locales.");
-        }
+        console.error("Offline/Error:", err);
+        const local = localStorage.getItem('neurodiary_v4_local');
+        if(local) appData = JSON.parse(local);
+        renderCalendar();
+        loadDayContent(selectedDateStr);
     }
 }
 
 async function saveToDrive() {
-    // 1. Local Backup
-    localStorage.setItem('neurodiary_backup', JSON.stringify(appData));
-    
+    localStorage.setItem('neurodiary_v4_local', JSON.stringify(appData));
     const content = JSON.stringify(appData);
-    
     try {
         if (fileId) {
-            // Actualizar
-            await gapi.client.request({
-                path: '/upload/drive/v3/files/' + fileId,
-                method: 'PATCH',
-                params: { uploadType: 'media' },
-                body: content
-            });
+            await gapi.client.request({ path: '/upload/drive/v3/files/' + fileId, method: 'PATCH', params: { uploadType: 'media' }, body: content });
         } else {
-            // Crear Nuevo
             const metadata = { name: DB_FILE_NAME, mimeType: 'application/json' };
             const boundary = '-------314159265358979323846';
             const delimiter = "\r\n--" + boundary + "\r\n";
             const close_delim = "\r\n--" + boundary + "--";
-
-            const multipartRequestBody =
-                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                delimiter + 'Content-Type: application/json\r\n\r\n' + content +
-                close_delim;
-
-            const request = gapi.client.request({
-                'path': '/upload/drive/v3/files',
-                'method': 'POST',
-                'params': {'uploadType': 'multipart'},
-                'headers': { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
-                'body': multipartRequestBody
-            });
+            const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + content + close_delim;
+            const request = gapi.client.request({ 'path': '/upload/drive/v3/files', 'method': 'POST', 'params': {'uploadType': 'multipart'}, 'headers': { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' }, 'body': body });
             const response = await request;
             fileId = response.result.id;
         }
-        console.log("Sincronizado con la nube.");
-    } catch (e) {
-        console.error("Error guardando:", e);
+    } catch (e) { console.error("Error guardando nube", e); }
+}
+
+// --- Lógica del Calendario ---
+function renderCalendar() {
+    const grid = document.getElementById('calendar-grid');
+    const display = document.getElementById('month-display');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayIndex = firstDay.getDay();
+
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    display.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+    // Espacios vacíos
+    for (let i = 0; i < startDayIndex; i++) {
+        grid.appendChild(document.createElement('div'));
+    }
+
+    // Días
+    for (let d = 1; d <= daysInMonth; d++) {
+        const div = document.createElement('div');
+        div.className = 'day';
+        div.textContent = d;
+
+        // Formato YYYY-MM-DD local manual para evitar error de zona horaria
+        const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        
+        // Marcar Hoy
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        if(dateKey === todayKey) div.classList.add('today');
+
+        // Marcar Seleccionado
+        if(dateKey === selectedDateStr) div.classList.add('selected');
+
+        // Marcar si tiene datos (Punto)
+        if(appData.entries[dateKey] && (appData.entries[dateKey].text || appData.entries[dateKey].tasks.length > 0)) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            div.appendChild(dot);
+        }
+
+        div.onclick = () => {
+            selectedDateStr = dateKey;
+            renderCalendar(); // Actualizar selección visual
+            loadDayContent(dateKey); // Cargar datos derecha
+        };
+
+        grid.appendChild(div);
     }
 }
 
-// --- DIARIO ---
+function changeMonth(step) {
+    currentMonth += step;
+    if(currentMonth > 11) { currentMonth = 0; currentYear++; }
+    if(currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+}
 
-async function saveEntry() {
-    const textInput = document.getElementById('diary-input');
-    const dateInput = document.getElementById('alert-time');
-    const text = textInput.value;
-    const date = dateInput.value;
+// --- Gestión de Contenido del Día ---
 
-    if (!text) return;
+function loadDayContent(dateKey) {
+    // Título
+    const [y, m, d] = dateKey.split('-');
+    document.getElementById('selected-date-title').textContent = `${d}/${m}/${y}`;
+    
+    // Recuperar datos o iniciar vacío
+    const dayData = appData.entries[dateKey] || { text: "", tasks: [] };
 
-    const newEntry = { 
-        id: Date.now(), 
-        text: text, 
-        alertDate: date || null 
+    // 1. Cargar Diario
+    document.getElementById('diary-input').value = dayData.text || "";
+
+    // 2. Cargar Tareas
+    renderTasks(dayData.tasks || []);
+    
+    // Ocultar feedback IA viejo
+    document.getElementById('ai-feedback').style.display = 'none';
+}
+
+function saveData() {
+    const text = document.getElementById('diary-input').value;
+    // Las tareas ya se actualizan en memoria al hacer click, solo las recuperamos
+    const currentTasks = appData.entries[selectedDateStr] ? appData.entries[selectedDateStr].tasks : [];
+
+    // Guardar en el objeto global
+    appData.entries[selectedDateStr] = {
+        text: text,
+        tasks: currentTasks
     };
-
-    appData.entries.unshift(newEntry);
-
-    if (date) {
-        await createCalendarEvent(text, date);
-    }
 
     saveToDrive();
-    renderEntries();
-    textInput.value = '';
-    dateInput.value = '';
+    renderCalendar(); // Para que aparezca el punto si es nuevo
+    
+    // Feedback visual pequeño
+    const btn = document.querySelector('.save-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Guardado';
+    setTimeout(() => btn.innerHTML = original, 1500);
 }
 
-function renderEntries() {
-    const list = document.getElementById('entries-list');
+// --- Gestión de Tareas ---
+
+function addTask() {
+    const input = document.getElementById('new-task-input');
+    const val = input.value.trim();
+    if(!val) return;
+
+    if(!appData.entries[selectedDateStr]) appData.entries[selectedDateStr] = { text:"", tasks:[] };
+    
+    appData.entries[selectedDateStr].tasks.push({ desc: val, done: false });
+    input.value = '';
+    
+    saveData(); // Guardar cambios
+    loadDayContent(selectedDateStr); // Recargar lista
+}
+
+function toggleTask(index) {
+    const tasks = appData.entries[selectedDateStr].tasks;
+    tasks[index].done = !tasks[index].done;
+    saveData();
+    loadDayContent(selectedDateStr);
+}
+
+function deleteTask(index) {
+    appData.entries[selectedDateStr].tasks.splice(index, 1);
+    saveData();
+    loadDayContent(selectedDateStr);
+}
+
+function renderTasks(tasks) {
+    const list = document.getElementById('task-list');
     list.innerHTML = '';
-
-    appData.entries.forEach(entry => {
-        const dateObj = new Date(entry.id);
-        const fecha = dateObj.toLocaleDateString();
-        const hora = dateObj.toLocaleTimeString().slice(0,5);
-        
-        let bell = entry.alertDate ? `<span class="alert-badge"><i class="fa-solid fa-bell"></i> Programado</span>` : '';
-
-        const div = document.createElement('div');
-        div.className = 'entry-card';
-        div.innerHTML = `
-            <div class="entry-meta">
-                <span>${fecha} - ${hora}</span>
-                ${bell}
-            </div>
-            <div class="entry-text">${entry.text}</div>
+    
+    tasks.forEach((t, index) => {
+        const item = document.createElement('div');
+        item.className = 'task-item';
+        item.innerHTML = `
+            <input type="checkbox" class="task-check" ${t.done ? 'checked' : ''} onchange="toggleTask(${index})">
+            <span class="task-text ${t.done ? 'done' : ''}">${t.desc}</span>
+            <button onclick="deleteTask(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
         `;
-        list.appendChild(div);
+        list.appendChild(item);
     });
-}
-
-// --- CALENDARIO (Alertas) ---
-
-async function createCalendarEvent(text, isoDate) {
-    const startTime = new Date(isoDate);
-    const endTime = new Date(startTime.getTime() + 30 * 60000);
-
-    const event = {
-        'summary': '🔔 NeuroDiary: Tarea Pendiente',
-        'description': text,
-        'start': { 'dateTime': startTime.toISOString(), 'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone },
-        'end': { 'dateTime': endTime.toISOString(), 'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone },
-        'reminders': {
-            'useDefault': false,
-            'overrides': [
-                {'method': 'email', 'minutes': 60},
-                {'method': 'popup', 'minutes': 10}
-            ]
-        }
-    };
-
-    try {
-        await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
-        alert('¡Alerta creada! Recibirás un correo y una notificación.');
-    } catch (e) {
-        console.error("Error Calendario:", e);
-        alert("Error al conectar con el calendario. Revisa la consola.");
-    }
 }

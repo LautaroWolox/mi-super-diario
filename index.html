@@ -3,99 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroDiary - Diario & Organigrama IA</title>
+    <title>NeuroDiary 4.0</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="login-screen" class="screen">
-        <div class="login-card">
-            <h1><i class="fa-solid fa-brain"></i> NeuroDiary</h1>
-            <p>Tu vida organizada, segura en tu Drive y potenciada con IA.</p>
+        <div class="glass-panel login-box">
+            <i class="fa-solid fa-brain logo-icon"></i>
+            <h1>NeuroDiary</h1>
+            <p style="color: #94a3b8;">Tu sistema operativo mental.</p>
             <button id="btn-login" class="google-btn">
-                <i class="fa-brands fa-google"></i> Acceder con Gmail
+                <i class="fa-brands fa-google"></i> Continuar con Google
             </button>
         </div>
     </div>
 
     <div id="app-screen" class="screen hidden">
-        <nav class="sidebar">
-            <div class="logo"><i class="fa-solid fa-fingerprint"></i></div>
-            
-            <button onclick="showSection('diary')" title="Diario"><i class="fa-solid fa-book-open"></i></button>
-            <button onclick="showSection('organigram')" title="Organigrama"><i class="fa-solid fa-sitemap"></i></button>
-            <button onclick="showSection('assistant')" title="Asistente IA"><i class="fa-solid fa-robot"></i></button>
-            
-            <div class="spacer"></div>
-            <button id="btn-logout" class="danger" title="Salir"><i class="fa-solid fa-right-from-bracket"></i></button>
+        <nav class="sidebar glass-panel">
+            <i class="fa-solid fa-fingerprint logo-icon" style="font-size: 1.5rem; margin-top: 10px;"></i>
+            <button onclick="showCalendarView()" class="nav-btn active" title="Mi Espacio"><i class="fa-solid fa-layer-group"></i></button>
+            <button onclick="showChatView()" class="nav-btn" title="Asistente"><i class="fa-solid fa-microchip"></i></button>
+            <div style="flex:1"></div>
+            <button id="btn-logout" class="nav-btn" style="color:#ef4444"><i class="fa-solid fa-power-off"></i></button>
         </nav>
 
         <main class="content">
-            <section id="diary" class="active-section">
-                <header>
-                    <h2><i class="fa-regular fa-calendar"></i> Diario Personal</h2>
-                    <p class="subtitle">Escribe, desahógate y organiza. Tus datos van a tu Drive.</p>
-                </header>
+            
+            <div id="main-view" class="dashboard-grid">
                 
-                <div class="input-area">
-                    <textarea id="diary-input" placeholder="¿Qué tienes en mente hoy?"></textarea>
+                <div class="glass-panel calendar-card">
+                    <div class="cal-header">
+                        <button class="cal-nav" onclick="changeMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                        <h2 id="month-display">Mes Año</h2>
+                        <button class="cal-nav" onclick="changeMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    <div class="weekdays">
+                        <div>D</div><div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div>
+                    </div>
+                    <div id="calendar-grid" class="days-grid"></div>
+                </div>
+
+                <div class="glass-panel detail-card">
+                    <h2 id="selected-date-title" class="date-title">Selecciona un día</h2>
+                    
+                    <div class="tasks-area">
+                        <div class="task-header">
+                            <h4 style="margin:0; color:var(--text-muted);"><i class="fa-solid fa-list-check"></i> Rutina & Tareas</h4>
+                        </div>
+                        <div class="task-input-group">
+                            <input type="text" id="new-task-input" class="task-input" placeholder="+ Agregar tarea...">
+                            <button class="add-btn" onclick="addTask()"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div id="task-list" class="task-list">
+                            </div>
+                    </div>
+
+                    <div class="journal-area">
+                        <h4 style="margin:0; color:var(--text-muted);"><i class="fa-solid fa-pen-nib"></i> Diario & Notas</h4>
+                        <textarea id="diary-input" placeholder="¿Qué tal estuvo tu día? ¿Cómo te sientes?"></textarea>
+                    </div>
+
+                    <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleImageUpload()">
+
                     <div class="actions">
-                        <div class="date-picker">
-                            <label><i class="fa-solid fa-bell"></i> Recordatorio:</label>
-                            <input type="datetime-local" id="alert-time">
-                        </div>
-                        <button onclick="saveEntry()" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                        <button class="btn-main ai-btn" onclick="document.getElementById('img-upload').click()" title="Subir Foto">
+                            <i class="fa-solid fa-camera"></i>
+                        </button>
+                        <button class="btn-main ai-btn" onclick="analyzeEmotion()">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Analizar
+                        </button>
+                        <button class="btn-main save-btn" onclick="saveData()">
+                            <i class="fa-solid fa-floppy-disk"></i> Guardar Todo
+                        </button>
                     </div>
-                </div>
 
-                <div id="entries-list">
-                    </div>
-            </section>
+                    <div id="ai-feedback" class="ai-popup"></div>
+                </div>
+            </div>
 
-            <section id="organigram" class="hidden-section">
-                <header>
-                    <h2><i class="fa-solid fa-project-diagram"></i> Mis Proyectos</h2>
-                </header>
-                <div class="canvas-placeholder">
-                    <div class="node-root">YO</div>
-                    <div class="line-vertical"></div>
-                    <div class="branches">
-                        <div class="branch">
-                            <div class="node">Trabajo</div>
-                        </div>
-                        <div class="branch">
-                            <div class="node">Salud</div>
-                        </div>
-                        <div class="branch">
-                            <div class="node">Ideas</div>
-                        </div>
-                    </div>
+            <div id="chat-view" class="hidden glass-panel" style="height:100%; padding:30px; border-radius:24px; display:flex; flex-direction:column;">
+                <h2>Asistente Gemini</h2>
+                <div id="chat-history" style="flex:1; overflow-y:auto; margin-bottom:20px;"></div>
+                <div style="display:flex; gap:10px;">
+                    <input id="gemini-prompt" type="text" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); padding:15px; border-radius:50px; color:white;" placeholder="Habla con tu diario...">
+                    <button onclick="askGemini()" style="width:50px; height:50px; border-radius:50%; background:var(--primary); border:none; color:white; cursor:pointer;"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
-                <p style="text-align: center; color: #6c7086; margin-top: 20px;">(Visualización básica del organigrama)</p>
-            </section>
+            </div>
 
-            <section id="assistant" class="hidden-section">
-                <header>
-                    <h2><i class="fa-solid fa-sparkles"></i> Asistente IA</h2>
-                </header>
-                <div id="chat-history">
-                    <div class="msg ai-msg">Hola, he leído tus últimas entradas del diario. ¿En qué puedo ayudarte hoy?</div>
-                </div>
-                <div class="chat-input-area">
-                    <input type="text" id="gemini-prompt" placeholder="Pregúntame algo sobre tu diario...">
-                    <button onclick="askGemini()"><i class="fa-solid fa-paper-plane"></i></button>
-                </div>
-            </section>
         </main>
     </div>
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
-    
     <script src="auth.js"></script>
     <script src="app.js"></script>
     <script src="gemini.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+    <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
 </body>
 </html>
