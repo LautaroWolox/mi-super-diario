@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroDiary - Diario & Organigrama IA</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-screen" class="screen">
+        <div class="login-card">
+            <h1><i class="fa-solid fa-brain"></i> NeuroDiary</h1>
+            <p>Tu vida organizada, segura en tu Drive y potenciada con IA.</p>
+            <button id="btn-login" class="google-btn">
+                <i class="fa-brands fa-google"></i> Acceder con Gmail
+            </button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="screen hidden">
+        <nav class="sidebar">
+            <div class="logo"><i class="fa-solid fa-fingerprint"></i></div>
+            
+            <button onclick="showSection('diary')" title="Diario"><i class="fa-solid fa-book-open"></i></button>
+            <button onclick="showSection('organigram')" title="Organigrama"><i class="fa-solid fa-sitemap"></i></button>
+            <button onclick="showSection('assistant')" title="Asistente IA"><i class="fa-solid fa-robot"></i></button>
+            
+            <div class="spacer"></div>
+            <button id="btn-logout" class="danger" title="Salir"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </nav>
+
+        <main class="content">
+            <section id="diary" class="active-section">
+                <header>
+                    <h2><i class="fa-regular fa-calendar"></i> Diario Personal</h2>
+                    <p class="subtitle">Escribe, desahógate y organiza. Tus datos van a tu Drive.</p>
+                </header>
+                
+                <div class="input-area">
+                    <textarea id="diary-input" placeholder="¿Qué tienes en mente hoy?"></textarea>
+                    <div class="actions">
+                        <div class="date-picker">
+                            <label><i class="fa-solid fa-bell"></i> Recordatorio:</label>
+                            <input type="datetime-local" id="alert-time">
+                        </div>
+                        <button onclick="saveEntry()" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                    </div>
+                </div>
+
+                <div id="entries-list">
+                    </div>
+            </section>
+
+            <section id="organigram" class="hidden-section">
+                <header>
+                    <h2><i class="fa-solid fa-project-diagram"></i> Mis Proyectos</h2>
+                </header>
+                <div class="canvas-placeholder">
+                    <div class="node-root">YO</div>
+                    <div class="line-vertical"></div>
+                    <div class="branches">
+                        <div class="branch">
+                            <div class="node">Trabajo</div>
+                        </div>
+                        <div class="branch">
+                            <div class="node">Salud</div>
+                        </div>
+                        <div class="branch">
+                            <div class="node">Ideas</div>
+                        </div>
+                    </div>
+                </div>
+                <p style="text-align: center; color: #6c7086; margin-top: 20px;">(Visualización básica del organigrama)</p>
+            </section>
+
+            <section id="assistant" class="hidden-section">
+                <header>
+                    <h2><i class="fa-solid fa-sparkles"></i> Asistente IA</h2>
+                </header>
+                <div id="chat-history">
+                    <div class="msg ai-msg">Hola, he leído tus últimas entradas del diario. ¿En qué puedo ayudarte hoy?</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="gemini-prompt" placeholder="Pregúntame algo sobre tu diario...">
+                    <button onclick="askGemini()"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    <script src="gemini.js"></script>
+</body>
+</html>
